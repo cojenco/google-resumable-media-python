@@ -14,6 +14,7 @@
 
 """Support for downloading media from Google APIs."""
 
+import functools
 import urllib3.response
 
 from google.resumable_media import _download
@@ -168,7 +169,8 @@ class Download(_request_helpers.RequestsMixin, _download.Download):
         self._process_response(result)
 
         if self._stream is not None:
-            self._write_to_stream(result)
+            func = functools.partial(self._write_to_stream, result)
+            _helpers.run_with_retries(func, self._retry_strategy)
 
         return result
 
@@ -300,7 +302,8 @@ class RawDownload(_request_helpers.RawRequestsMixin, _download.Download):
         self._process_response(result)
 
         if self._stream is not None:
-            self._write_to_stream(result)
+            func = functools.partial(self._write_to_stream, result)
+            _helpers.run_with_retries(func, self._retry_strategy)
 
         return result
 
