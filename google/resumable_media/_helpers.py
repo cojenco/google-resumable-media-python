@@ -198,6 +198,63 @@ def wait_and_retry(func, get_status_code, retry_strategy):
         time.sleep(wait_time)
 
 
+def retry_connection_errors(func, retry_strategy):
+    """Attempts to retry a call to ``func`` until success.
+
+    Expects ``func`` to retry when encountering retry-able connection errors
+    using ``connection_error_exceptions``.
+
+    Will retry until :meth:`~.RetryStrategy.retry_allowed` (on the current
+    ``retry_strategy``) returns :data:`False`. Uses
+    :func:`calculate_retry_wait` to double the wait time (with jitter) after
+    each attempt.
+
+    Args:
+        func (Callable): A callable that takes no arguments and returns nothing
+        retry_strategy (~google.resumable_media.common.RetryStrategy): The
+            strategy to use if the request fails and must be retried.
+    """
+    total_sleep = 0.0
+    num_retries = 0
+    # base_wait will be multiplied by the multiplier on the first retry.
+    base_wait = float(retry_strategy.initial_delay) / retry_strategy.multiplier
+
+    # Set the retriable_exception_type if possible. We expect requests to be
+    # present here and the transport to be using requests.exceptions errors,
+    # but due to loose coupling with the transport layer we can't guarantee it.
+    try:
+        connection_error_exceptions = _get_connection_error_classes()
+    except ImportError:
+        # We don't know the correct classes to use to catch connection errors,
+        # so an empty tuple here communicates "catch no exceptions".
+        connection_error_exceptions = ()
+
+    while True:  # return on success or when retries exhausted.
+        error = None
+        try:
+            func()
+        except connection_error_exceptions as e:
+            error = e
+        else:
+            return
+
+        if not retry_strategy.retry_allowed(total_sleep, num_retries):
+            # Retries are exhausted and no acceptable response was received. Raise the
+            # retriable_error or return the unacceptable response.
+            if error:
+                raise error
+
+            return
+
+        base_wait, wait_time = calculate_retry_wait(
+            base_wait, retry_strategy.max_sleep, retry_strategy.multiplier
+        )
+
+        num_retries += 1
+        total_sleep += wait_time
+        time.sleep(wait_time)
+
+
 def _get_crc32c_object():
     """Get crc32c object
     Attempt to use the Google-CRC32c package. If it isn't available, try

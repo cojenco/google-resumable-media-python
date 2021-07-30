@@ -14,6 +14,7 @@
 
 """Support for downloading media from Google APIs."""
 
+import functools
 import urllib3.response
 
 from google.resumable_media import _download
@@ -168,7 +169,8 @@ class Download(_request_helpers.RequestsMixin, _download.Download):
         self._process_response(result)
 
         if self._stream is not None:
-            self._write_to_stream(result)
+            func = functools.partial(self._write_to_stream, response=result)
+            _helpers.retry_connection_errors(func, self._retry_strategy)
 
         return result
 
@@ -300,7 +302,8 @@ class RawDownload(_request_helpers.RawRequestsMixin, _download.Download):
         self._process_response(result)
 
         if self._stream is not None:
-            self._write_to_stream(result)
+            func = functools.partial(self._write_to_stream, response=result)
+            _helpers.retry_connection_errors(func, self._retry_strategy)
 
         return result
 
@@ -371,7 +374,9 @@ class ChunkedDownload(_request_helpers.RequestsMixin, _download.ChunkedDownload)
             retry_strategy=self._retry_strategy,
             timeout=timeout,
         )
-        self._process_response(result)
+
+        func = functools.partial(self._process_response, response=result)
+        _helpers.retry_connection_errors(func, self._retry_strategy)
         return result
 
 
@@ -442,7 +447,9 @@ class RawChunkedDownload(_request_helpers.RawRequestsMixin, _download.ChunkedDow
             retry_strategy=self._retry_strategy,
             timeout=timeout,
         )
-        self._process_response(result)
+
+        func = functools.partial(self._process_response, response=result)
+        _helpers.retry_connection_errors(func, self._retry_strategy)
         return result
 
 
