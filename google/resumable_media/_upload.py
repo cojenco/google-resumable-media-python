@@ -500,7 +500,6 @@ class ResumableUpload(UploadBase):
             response,
             (http.client.OK, http.client.CREATED),
             self._get_status_code,
-            callback=self._make_invalid,
         )
         self._resumable_url = _helpers.header_required(
             response, "location", self._get_headers
@@ -672,7 +671,6 @@ class ResumableUpload(UploadBase):
             response,
             (http.client.OK, resumable_media.PERMANENT_REDIRECT),
             self._get_status_code,
-            callback=self._make_invalid,
         )
         if status_code == http.client.OK:
             # NOTE: We use the "local" information of ``bytes_sent`` to update

@@ -419,7 +419,10 @@ class ResumableUpload(_request_helpers.RequestsMixin, _upload.ResumableUpload):
             return result
 
         return _helpers.wait_and_retry(
-            retriable_request, self._get_status_code, self._retry_strategy
+            retriable_request,
+            self._get_status_code,
+            self._retry_strategy,
+            callback=self._make_invalid,
         )
 
     def transmit_next_chunk(
@@ -514,7 +517,10 @@ class ResumableUpload(_request_helpers.RequestsMixin, _upload.ResumableUpload):
             return result
 
         return _helpers.wait_and_retry(
-            retriable_request, self._get_status_code, self._retry_strategy
+            retriable_request,
+            self._get_status_code,
+            self._retry_strategy,
+            callback=self._make_invalid,
         )
 
     def recover(self, transport):

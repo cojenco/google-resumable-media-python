@@ -134,7 +134,7 @@ def calculate_retry_wait(base_wait, max_sleep, multiplier=2.0):
     return new_base_wait, new_base_wait + 0.001 * jitter_ms
 
 
-def wait_and_retry(func, get_status_code, retry_strategy):
+def wait_and_retry(func, get_status_code, retry_strategy, callback=do_nothing):
     """Attempts to retry a call to ``func`` until success.
 
     Expects ``func`` to return an HTTP response and uses ``get_status_code``
@@ -188,6 +188,7 @@ def wait_and_retry(func, get_status_code, retry_strategy):
             if get_status_code(e.response) in common.RETRYABLE:
                 error = e  # Fall through to retry, if there are retries left.
             else:
+                callback()
                 raise  # If the status code is not retriable, raise w/o retry.
         else:
             return response
@@ -195,6 +196,7 @@ def wait_and_retry(func, get_status_code, retry_strategy):
         if not retry_strategy.retry_allowed(total_sleep, num_retries):
             # Retries are exhausted and no acceptable response was received.
             # Raise the retriable_error.
+            callback()
             raise error
 
         base_wait, wait_time = calculate_retry_wait(
