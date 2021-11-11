@@ -150,18 +150,20 @@ class Download(_request_helpers.RequestsMixin, _download.Download):
             ValueError: If the current :class:`Download` has already
                 finished.
         """
-        method, url, payload, headers = self._prepare_request()
-        # NOTE: We assume "payload is None" but pass it along anyway.
-        request_kwargs = {
-            "data": payload,
-            "headers": headers,
-            "timeout": timeout,
-        }
-        if self._stream is not None:
-            request_kwargs["stream"] = True
-
         # Wrap the request business logic in a function to be retried.
         def retriable_request():
+            method, url, payload, headers = self._prepare_request()
+
+            # NOTE: We assume "payload is None" but pass it along anyway.
+            request_kwargs = {
+                "data": payload,
+                "headers": headers,
+                "timeout": timeout,
+            }
+
+            if self._stream is not None:
+                request_kwargs["stream"] = True
+
             result = transport.request(method, url, **request_kwargs)
 
             self._process_response(result)
