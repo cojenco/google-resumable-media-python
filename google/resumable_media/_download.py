@@ -139,6 +139,26 @@ class Download(DownloadBase):
             media_url, stream=stream, start=start, end=end, headers=headers
         )
         self.checksum = checksum
+        self._bytes_downloaded = 0
+
+    @property
+    def bytes_downloaded(self):
+        """int: Number of bytes that have been downloaded."""
+        return self._bytes_downloaded
+
+    def _get_byte_range(self):
+        """Determines the byte range for the next request.
+
+        Returns:
+            Tuple[int, int]: The pair of begin and end byte for the next
+            chunked request.
+        """
+        if self.start is None:
+            curr_start = self.bytes_downloaded
+        else:
+            curr_start = self.start + self.bytes_downloaded
+
+        return curr_start, self.end
 
     def _prepare_request(self):
         """Prepare the contents of an HTTP request.
@@ -164,7 +184,8 @@ class Download(DownloadBase):
         if self.finished:
             raise ValueError("A download can only be used once.")
 
-        add_bytes_range(self.start, self.end, self._headers)
+        curr_start, curr_end = self._get_byte_range()
+        add_bytes_range(curr_start, curr_end, self._headers)
         return _GET, self.media_url, None, self._headers
 
     def _process_response(self, response):
@@ -179,6 +200,39 @@ class Download(DownloadBase):
 
         .. _sans-I/O: https://sans-io.readthedocs.io/
         """
+        # Retrieve content length to calculate bytes_downloaded
+        headers = self._get_headers(response)
+        response_body = self._get_body(response)
+
+        start_byte, end_byte, total_bytes = get_range_info(
+            response, self._get_headers
+        )
+
+        transfer_encoding = headers.get("transfer-encoding")
+
+        if transfer_encoding is None:
+            content_length = _helpers.header_required(
+                response,
+                "content-length",
+                self._get_headers
+            )
+            num_bytes = int(content_length)
+            if len(response_body) != num_bytes:
+                self._make_invalid()
+                raise common.InvalidResponse(
+                    response,
+                    "Response is different size than content-length",
+                    "Expected",
+                    num_bytes,
+                    "Received",
+                    len(response_body),
+                )
+        else:
+            # 'content-length' header not allowed with chunked encoding.
+            num_bytes = end_byte - start_byte + 1
+
+        # Update ``bytes_downloaded``.
+        self._bytes_downloaded += num_bytes
         # Tombstone the current Download so it cannot be used again.
         self._finished = True
         _helpers.require_status_code(
