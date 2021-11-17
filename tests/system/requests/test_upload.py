@@ -121,7 +121,7 @@ def check_content(blob_name, expected_content, transport, headers=None):
     media_url = utils.DOWNLOAD_URL_TEMPLATE.format(blob_name=blob_name)
     download = resumable_requests.Download(media_url, headers=headers)
     response = download.consume(transport)
-    assert response.status_code == http.client.OK
+    assert response.status_code in [http.client.OK, http.client.PARTIAL_CONTENT]
     assert response.content == expected_content
 
 
