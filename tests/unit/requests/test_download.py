@@ -138,6 +138,33 @@ class TestDownload(object):
         error = exc_info.value
         assert error.args[0] == "checksum must be ``'md5'``, ``'crc32c'`` or ``None``"
 
+    @pytest.mark.parametrize("checksum", ["md5", "crc32c", None])
+    def test__write_to_stream_partial_content_skips_hash_check(self, checksum):
+        stream = io.BytesIO()
+        download = download_mod.Download(EXAMPLE_URL, stream=stream, checksum=checksum)
+
+        chunk1 = b"first chunk, count starting at 0. "
+        chunk2 = b"second chunk, or chunk 1, which is better? "
+        chunk3 = b"ordinals and numerals and stuff."
+        invalid_checksum = "d3JvbmcgbiBtYWRlIHVwIQ=="
+        header_value = "crc32c={bad},md5={bad}".format(bad=invalid_checksum)
+        headers = {_helpers._HASH_HEADER: header_value}
+        # Test that checksum checks are skipped for partial content responses,
+        # and does not raise error.
+        response = _mock_response(status_code=http.client.PARTIAL_CONTENT, chunks=[chunk1, chunk2, chunk3], headers=headers)
+        ret_val = download._write_to_stream(response)
+        assert ret_val is None
+
+        assert stream.getvalue() == chunk1 + chunk2 + chunk3
+        assert download._bytes_downloaded == len(chunk1 + chunk2 + chunk3)
+
+        # Check mocks.
+        response.__enter__.assert_called_once_with()
+        response.__exit__.assert_called_once_with(None, None, None)
+        response.iter_content.assert_called_once_with(
+            chunk_size=_request_helpers._SINGLE_GET_CHUNK_SIZE, decode_unicode=False
+        )
+
     def _consume_helper(
         self,
         stream=None,
@@ -885,7 +912,7 @@ class TestChunkedDownload(object):
         with pytest.raises(ValueError):
             download.consume_next_chunk(None)
 
-    def _mock_transport(self, start, chunk_size, total_bytes, content=b""):
+    def _mock_transport(self, start, chunk_size, total_bytes, content=b"", status=http.client.OK):
         transport = mock.Mock(spec=["request"])
         assert len(content) == chunk_size
         transport.request.return_value = self._mock_response(
@@ -893,7 +920,7 @@ class TestChunkedDownload(object):
             start + chunk_size - 1,
             total_bytes,
             content=content,
-            status_code=int(http.client.OK),
+            status_code=int(status),
         )
 
         return transport
