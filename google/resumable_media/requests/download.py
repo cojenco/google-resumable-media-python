@@ -143,13 +143,13 @@ class Download(_request_helpers.RequestsMixin, _download.Download):
         # bytes downloaded to the response header x-goog-stored-content-length.
         # The library will attempt to trigger a retry by raising a
         # connection error, if the download seems to be incomplete.
-        if (
-            response.status_code != http.client.PARTIAL_CONTENT
-            and x_goog_length
-            and self._bytes_downloaded < int(x_goog_length)
-            and x_goog_encoding != "gzip"
-        ):
-            raise ConnectionError(content_length_msg)
+        # if (
+        #     response.status_code != http.client.PARTIAL_CONTENT
+        #     and x_goog_length
+        #     and self._bytes_downloaded < int(x_goog_length)
+        #     and x_goog_encoding != "gzip"
+        # ):
+        #     raise ConnectionError(content_length_msg)
         # Don't validate the checksum for partial responses.
         if (
             expected_checksum is not None
@@ -157,14 +157,21 @@ class Download(_request_helpers.RequestsMixin, _download.Download):
         ):
             actual_checksum = _helpers.prepare_checksum_digest(checksum_object.digest())
             if actual_checksum != expected_checksum:
-                msg = _CHECKSUM_MISMATCH.format(
-                    self.media_url,
-                    expected_checksum,
-                    actual_checksum,
-                    checksum_type=self.checksum.upper(),
-                )
-                msg += content_length_msg
-                raise common.DataCorruption(response, msg)
+                if (
+                    x_goog_length
+                    and self._bytes_downloaded < int(x_goog_length)
+                    and x_goog_encoding != "gzip"
+                ):
+                    raise ConnectionError(content_length_msg)
+                else:
+                    msg = _CHECKSUM_MISMATCH.format(
+                        self.media_url,
+                        expected_checksum,
+                        actual_checksum,
+                        checksum_type=self.checksum.upper(),
+                    )
+                    msg += content_length_msg
+                    raise common.DataCorruption(response, msg)
 
     def consume(
         self,
@@ -349,13 +356,13 @@ class RawDownload(_request_helpers.RawRequestsMixin, _download.Download):
         # bytes downloaded to the response header x-goog-stored-content-length.
         # The library will attempt to trigger a retry by raising a
         # connection error, if the download seems to be incomplete.
-        if (
-            response.status_code != http.client.PARTIAL_CONTENT
-            and x_goog_length
-            and self._bytes_downloaded < int(x_goog_length)
-            and x_goog_encoding != "gzip"
-        ):
-            raise ConnectionError(content_length_msg)
+        # if (
+        #     response.status_code != http.client.PARTIAL_CONTENT
+        #     and x_goog_length
+        #     and self._bytes_downloaded < int(x_goog_length)
+        #     and x_goog_encoding != "gzip"
+        # ):
+        #     raise ConnectionError(content_length_msg)
         # Don't validate the checksum for partial responses.
         if (
             expected_checksum is not None
@@ -364,14 +371,21 @@ class RawDownload(_request_helpers.RawRequestsMixin, _download.Download):
             actual_checksum = _helpers.prepare_checksum_digest(checksum_object.digest())
 
             if actual_checksum != expected_checksum:
-                msg = _CHECKSUM_MISMATCH.format(
-                    self.media_url,
-                    expected_checksum,
-                    actual_checksum,
-                    checksum_type=self.checksum.upper(),
-                )
-                msg += content_length_msg
-                raise common.DataCorruption(response, msg)
+                if (
+                    x_goog_length
+                    and self._bytes_downloaded < int(x_goog_length)
+                    and x_goog_encoding != "gzip"
+                ):
+                    raise ConnectionError(content_length_msg)
+                else:
+                    msg = _CHECKSUM_MISMATCH.format(
+                        self.media_url,
+                        expected_checksum,
+                        actual_checksum,
+                        checksum_type=self.checksum.upper(),
+                    )
+                    msg += content_length_msg
+                    raise common.DataCorruption(response, msg)
 
     def consume(
         self,
